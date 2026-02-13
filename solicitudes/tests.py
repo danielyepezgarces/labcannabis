@@ -1,5 +1,5 @@
 from django.test import TestCase
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from datetime import date, timedelta
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra
 
@@ -214,4 +214,79 @@ class TipoAnalisisTest(TestCase):
         self.assertEqual(tipo.nombre, 'Humedad')
         self.assertEqual(tipo.categoria, 'FISICO')
         self.assertEqual(str(tipo), 'Físicos - Humedad')
+
+
+class AdminEstadoModificationTest(TestCase):
+    """Tests for admin estado modification functionality"""
+    
+    def setUp(self):
+        # Create groups
+        self.admin_group = Group.objects.create(name='Administrador')
+        self.solicitante_group = Group.objects.create(name='Solicitante')
+        
+        # Create users
+        self.admin_user = User.objects.create_user(
+            username='admin',
+            email='admin@test.com',
+            password='adminpass123'
+        )
+        self.admin_user.groups.add(self.admin_group)
+        
+        self.solicitante_user = User.objects.create_user(
+            username='solicitante',
+            email='solicitante@test.com',
+            password='solpass123'
+        )
+        self.solicitante_user.groups.add(self.solicitante_group)
+        
+        # Create test solicitud
+        self.solicitud = Solicitud.objects.create(
+            solicitante_nombre='Test',
+            solicitante_area='PRODUCCION',
+            solicitante_cargo='Test',
+            solicitante_email='test@example.com',
+            creado_por=self.admin_user
+        )
+    
+    def test_admin_can_set_estado_directly(self):
+        """Test that admin can set estado directly using set_estado_admin method"""
+        self.assertEqual(self.solicitud.estado, 'RADICADA')
+        
+        # Admin should be able to change estado directly
+        self.solicitud.set_estado_admin('COMPLETADA')
+        self.solicitud.save()
+        
+        # Reload from database
+        solicitud = Solicitud.objects.get(pk=self.solicitud.pk)
+        self.assertEqual(solicitud.estado, 'COMPLETADA')
+    
+    def test_set_estado_admin_method_exists(self):
+        """Test that set_estado_admin method exists and is callable"""
+        self.assertTrue(hasattr(self.solicitud, 'set_estado_admin'))
+        self.assertTrue(callable(getattr(self.solicitud, 'set_estado_admin')))
+    
+    def test_admin_bypass_fsm_protection(self):
+        """Test that admin can bypass FSM state transitions"""
+        # Normal FSM transition path would be:
+        # RADICADA -> PENDIENTE_RECEPCION -> RECIBIDA -> EN_ANALISIS -> COMPLETADA
+        
+        # But admin should be able to jump directly from RADICADA to EN_ANALISIS
+        self.assertEqual(self.solicitud.estado, 'RADICADA')
+        
+        self.solicitud.set_estado_admin('EN_ANALISIS')
+        self.solicitud.save()
+        
+        solicitud = Solicitud.objects.get(pk=self.solicitud.pk)
+        self.assertEqual(solicitud.estado, 'EN_ANALISIS')
+    
+    def test_normal_fsm_transitions_still_work(self):
+        """Test that normal FSM transitions still work as expected"""
+        self.assertEqual(self.solicitud.estado, 'RADICADA')
+        
+        # Test normal FSM transition
+        self.solicitud.enviar_a_recepcion()
+        self.solicitud.save()
+        
+        solicitud = Solicitud.objects.get(pk=self.solicitud.pk)
+        self.assertEqual(solicitud.estado, 'PENDIENTE_RECEPCION')
 
