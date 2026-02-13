@@ -131,7 +131,20 @@ class Solicitud(models.Model):
         """
         Method to allow administrators to set estado directly, bypassing FSM protection.
         This should only be used by administrators in the admin interface.
+        
+        Args:
+            new_estado: The new estado value. Must be one of the valid choices.
+        
+        Raises:
+            ValueError: If new_estado is not a valid choice.
         """
+        # Validate that new_estado is a valid choice
+        valid_estados = [choice[0] for choice in self.ESTADO_CHOICES]
+        if new_estado not in valid_estados:
+            raise ValueError(
+                f"Invalid estado '{new_estado}'. Must be one of: {', '.join(valid_estados)}"
+            )
+        
         # Bypass FSM protection by setting the field directly in __dict__
         self.__dict__['estado'] = new_estado
 

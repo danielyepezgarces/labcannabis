@@ -20,9 +20,9 @@ class SolicitudAdminForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Allow direct estado modification for users with change permission
+        # Make estado field non-required in the form
+        # Actual permission-based restrictions are enforced in the admin class
         if 'estado' in self.fields:
-            # Make estado field editable by removing FSM protection in the form
             self.fields['estado'].required = False
 
 
@@ -111,10 +111,9 @@ class SolicitudAdmin(ModelAdmin):
         readonly = list(super().get_readonly_fields(request, obj))
         
         # If user is not a superuser and not in Administrador group, make estado readonly
-        if not request.user.is_superuser:
-            if not request.user.groups.filter(name='Administrador').exists():
-                if 'estado' not in readonly:
-                    readonly.append('estado')
+        if not request.user.is_superuser and not request.user.groups.filter(name='Administrador').exists():
+            if 'estado' not in readonly:
+                readonly.append('estado')
         
         return readonly
     
@@ -166,6 +165,9 @@ class SolicitudAdmin(ModelAdmin):
                 # Use the special admin method to set estado
                 new_estado = form.cleaned_data['estado']
                 obj.set_estado_admin(new_estado)
+                # Save with update_fields to exclude estado from normal save process
+                obj.save(update_fields=[f for f in form.changed_data if f != 'estado'])
+                return
         
         super().save_model(request, obj, form, change)
     

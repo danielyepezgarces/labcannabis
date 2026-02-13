@@ -289,4 +289,36 @@ class AdminEstadoModificationTest(TestCase):
         
         solicitud = Solicitud.objects.get(pk=self.solicitud.pk)
         self.assertEqual(solicitud.estado, 'PENDIENTE_RECEPCION')
+    
+    def test_set_estado_admin_validates_input(self):
+        """Test that set_estado_admin validates the estado value"""
+        with self.assertRaises(ValueError) as context:
+            self.solicitud.set_estado_admin('INVALID_ESTADO')
+        
+        self.assertIn('Invalid estado', str(context.exception))
+    
+    def test_set_estado_admin_accepts_valid_values(self):
+        """Test that set_estado_admin accepts all valid estado values"""
+        valid_estados = ['RADICADA', 'PENDIENTE_RECEPCION', 'RECIBIDA', 
+                        'EN_ANALISIS', 'COMPLETADA', 'RECHAZADA']
+        
+        for estado in valid_estados:
+            solicitud = Solicitud.objects.create(
+                solicitante_nombre='Test',
+                solicitante_area='PRODUCCION',
+                solicitante_cargo='Test',
+                solicitante_email='test@example.com',
+                creado_por=self.admin_user
+            )
+            
+            # Should not raise any exception
+            solicitud.set_estado_admin(estado)
+            solicitud.save()
+            
+            # Verify it was saved correctly
+            solicitud = Solicitud.objects.get(pk=solicitud.pk)
+            self.assertEqual(solicitud.estado, estado)
+            
+            # Clean up
+            solicitud.delete()
 
