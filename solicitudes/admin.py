@@ -8,20 +8,9 @@ from django.contrib import messages
 from django import forms
 from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
-from unfold.widgets import UnfoldAdminTextInputWidget, UnfoldAdminPasswordWidget
+from unfold.widgets import UnfoldAdminTextInputWidget, UnfoldAdminPasswordToggleWidget
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
 from .pdf import download_pdf_solicitud
-
-
-class PasswordInputWithToggle(UnfoldAdminPasswordWidget):
-    """Custom password input widget with show/hide toggle using Unfold styling"""
-    template_name = 'admin/widgets/password_with_toggle.html'
-    
-    def __init__(self, attrs=None):
-        default_attrs = {'class': 'password-input-toggle'}
-        if attrs:
-            default_attrs.update(attrs)
-        super().__init__(attrs=default_attrs)
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -33,8 +22,8 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields['username'].widget = UnfoldAdminTextInputWidget()
         
         # Add show password toggle to password fields with Unfold styling
-        self.fields['password1'].widget = PasswordInputWithToggle()
-        self.fields['password2'].widget = PasswordInputWithToggle()
+        self.fields['password1'].widget = UnfoldAdminPasswordToggleWidget()
+        self.fields['password2'].widget = UnfoldAdminPasswordToggleWidget()
         
         # Customize help text
         self.fields['password1'].help_text = 'La contraseña debe tener al menos 8 caracteres.'
@@ -336,12 +325,6 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
             'fields': ('username', 'password1', 'password2'),
         }),
     )
-    
-    class Media:
-        css = {
-            'all': ('admin/css/password_toggle.css',)
-        }
-        js = ('admin/js/password_toggle.js',)
     
     def save_model(self, request, obj, form, change):
         """Save user and assign Solicitante group by default for new users"""
