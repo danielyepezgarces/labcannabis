@@ -32,16 +32,17 @@ class Solicitud(models.Model):
         ('AGRONOMIA', 'Agronomía'),
         ('PRODUCCION', 'Producción'),
         ('ASEGURAMIENTO_CALIDAD', 'Aseguramiento de Calidad'),
+        ('CONTROL_CALIDAD', 'Control de Calidad'),
         ('COMERCIAL', 'Comercial'),
     ]
     
     CARGO_CHOICES = [
-        ('CONTROL_CALIDAD', 'Control de Calidad'),
         ('INGENIERO_AGRONOMO', 'Ingeniero Agrónomo'),
         ('ANALISTA_LABORATORIO', 'Analista de Laboratorio'),
         ('SUPERVISOR_PRODUCCION', 'Supervisor de Producción'),
         ('COORDINADOR', 'Coordinador'),
         ('GERENTE', 'Gerente'),
+        ('JEFE_DEPARTAMENTO', 'Jefe de Departamento'),
         ('OTRO', 'Otro'),
     ]
     
