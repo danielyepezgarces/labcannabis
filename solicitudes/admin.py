@@ -8,13 +8,13 @@ from django.contrib import messages
 from django import forms
 from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
-from unfold.widgets import UnfoldAdminTextInputWidget
+from unfold.widgets import UnfoldAdminTextInputWidget, UnfoldAdminPasswordWidget
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
 from .pdf import download_pdf_solicitud
 
 
-class PasswordInputWithToggle(forms.PasswordInput):
-    """Custom password input widget with show/hide toggle"""
+class PasswordInputWithToggle(UnfoldAdminPasswordWidget):
+    """Custom password input widget with show/hide toggle using Unfold styling"""
     template_name = 'admin/widgets/password_with_toggle.html'
     
     def __init__(self, attrs=None):
@@ -29,7 +29,10 @@ class CustomUserCreationForm(UserCreationForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Add show password toggle to password fields
+        # Use Unfold widget for username
+        self.fields['username'].widget = UnfoldAdminTextInputWidget()
+        
+        # Add show password toggle to password fields with Unfold styling
         self.fields['password1'].widget = PasswordInputWithToggle()
         self.fields['password2'].widget = PasswordInputWithToggle()
         
