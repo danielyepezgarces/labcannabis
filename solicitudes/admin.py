@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.urls import path
 from django.shortcuts import redirect
@@ -295,6 +295,26 @@ admin.site.unregister(User)
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin, ModelAdmin):
-    """Custom User admin with Unfold styling"""
-    pass
+    """Custom User admin with Unfold styling and Solicitante default role"""
+    
+    # Override add_fieldsets to remove usable_password field
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'password1', 'password2'),
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        """Save user and assign Solicitante group by default for new users"""
+        super().save_model(request, obj, form, change)
+        
+        # If this is a new user (not editing existing), add to Solicitante group
+        if not change:
+            try:
+                solicitante_group = Group.objects.get(name='Solicitante')
+                obj.groups.add(solicitante_group)
+            except Group.DoesNotExist:
+                # Group doesn't exist yet, skip
+                pass
 

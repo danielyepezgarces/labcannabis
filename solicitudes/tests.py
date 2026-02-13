@@ -322,3 +322,95 @@ class AdminEstadoModificationTest(TestCase):
             # Clean up
             solicitud.delete()
 
+
+class UserAdminTest(TestCase):
+    """Tests for custom UserAdmin functionality"""
+    
+    def setUp(self):
+        from django.contrib.admin.sites import AdminSite
+        from solicitudes.admin import UserAdmin
+        from django.test import RequestFactory
+        
+        self.admin_site = AdminSite()
+        self.user_admin = UserAdmin(User, self.admin_site)
+        self.factory = RequestFactory()
+        
+        # Create Solicitante group
+        self.solicitante_group = Group.objects.create(name='Solicitante')
+    
+    def test_add_fieldsets_no_usable_password(self):
+        """Test that usable_password field is not in add_fieldsets"""
+        # Check if usable_password is in any of the add_fieldsets
+        has_usable_password = False
+        for fieldset in self.user_admin.add_fieldsets:
+            if 'fields' in fieldset[1]:
+                if 'usable_password' in fieldset[1]['fields']:
+                    has_usable_password = True
+                    break
+        
+        self.assertFalse(has_usable_password, "usable_password should not be in add_fieldsets")
+    
+    def test_add_fieldsets_has_required_fields(self):
+        """Test that add_fieldsets has username and password fields"""
+        all_fields = []
+        for fieldset in self.user_admin.add_fieldsets:
+            if 'fields' in fieldset[1]:
+                all_fields.extend(fieldset[1]['fields'])
+        
+        self.assertIn('username', all_fields)
+        self.assertIn('password1', all_fields)
+        self.assertIn('password2', all_fields)
+    
+    def test_new_user_gets_solicitante_group(self):
+        """Test that new users are automatically assigned to Solicitante group"""
+        request = self.factory.post('/admin/auth/user/add/')
+        request.user = User.objects.create_superuser('admin', 'admin@test.com', 'admin')
+        
+        new_user = User.objects.create_user(
+            username='test_user',
+            email='test@test.com',
+            password='testpass123'
+        )
+        
+        # Mock form
+        class MockForm:
+            changed_data = []
+        
+        # Call save_model as if it's a new user (change=False)
+        self.user_admin.save_model(request, new_user, MockForm(), change=False)
+        
+        # Check if user has Solicitante group
+        self.assertTrue(new_user.groups.filter(name='Solicitante').exists())
+        
+        # Clean up
+        new_user.delete()
+        request.user.delete()
+    
+    def test_editing_user_doesnt_add_group_again(self):
+        """Test that editing existing users doesn't add Solicitante group again"""
+        request = self.factory.post('/admin/auth/user/add/')
+        request.user = User.objects.create_superuser('admin', 'admin@test.com', 'admin')
+        
+        existing_user = User.objects.create_user(
+            username='existing_user',
+            email='existing@test.com',
+            password='testpass123'
+        )
+        existing_user.groups.add(self.solicitante_group)
+        
+        initial_group_count = existing_user.groups.count()
+        
+        # Mock form
+        class MockForm:
+            changed_data = []
+        
+        # Call save_model as if editing (change=True)
+        self.user_admin.save_model(request, existing_user, MockForm(), change=True)
+        
+        # Group count should remain the same
+        self.assertEqual(existing_user.groups.count(), initial_group_count)
+        
+        # Clean up
+        existing_user.delete()
+        request.user.delete()
+
