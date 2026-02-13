@@ -1,7 +1,11 @@
 from django.contrib import admin
+from django.urls import path
+from django.shortcuts import redirect
+from django.contrib import messages
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import display
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
+from .pdf import download_pdf_solicitud
 
 
 class MuestraInline(TabularInline):
@@ -35,6 +39,7 @@ class SolicitudAdmin(ModelAdmin):
     search_fields = ['codigo', 'solicitante_nombre', 'solicitante_email']
     readonly_fields = ['codigo', 'fecha_solicitud', 'fecha_creacion', 'fecha_actualizacion']
     inlines = [MuestraInline]
+    actions = ['enviar_a_recepcion_action', 'iniciar_analisis_action', 'completar_analisis_action']
     
     fieldsets = (
         ('Información de la Solicitud', {
@@ -75,6 +80,48 @@ class SolicitudAdmin(ModelAdmin):
         if not change:  # New object
             obj.creado_por = request.user
         super().save_model(request, obj, form, change)
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:solicitud_id>/pdf/',
+                self.admin_site.admin_view(download_pdf_solicitud),
+                name='solicitud_pdf',
+            ),
+        ]
+        return custom_urls + urls
+    
+    # Actions for state transitions
+    @admin.action(description='Enviar a recepción')
+    def enviar_a_recepcion_action(self, request, queryset):
+        for solicitud in queryset:
+            try:
+                solicitud.enviar_a_recepcion()
+                solicitud.save()
+                messages.success(request, f'{solicitud.codigo} enviada a recepción')
+            except Exception as e:
+                messages.error(request, f'Error en {solicitud.codigo}: {str(e)}')
+    
+    @admin.action(description='Iniciar análisis')
+    def iniciar_analisis_action(self, request, queryset):
+        for solicitud in queryset:
+            try:
+                solicitud.iniciar_analisis()
+                solicitud.save()
+                messages.success(request, f'{solicitud.codigo} en análisis')
+            except Exception as e:
+                messages.error(request, f'Error en {solicitud.codigo}: {str(e)}')
+    
+    @admin.action(description='Completar análisis')
+    def completar_analisis_action(self, request, queryset):
+        for solicitud in queryset:
+            try:
+                solicitud.completar_analisis()
+                solicitud.save()
+                messages.success(request, f'{solicitud.codigo} completada')
+            except Exception as e:
+                messages.error(request, f'Error en {solicitud.codigo}: {str(e)}')
 
 
 @admin.register(Muestra)
