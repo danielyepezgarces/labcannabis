@@ -159,8 +159,8 @@ DEFAULT_FROM_EMAIL = 'noreply@labcannabis.com'
 
 # Django Unfold configuration
 UNFOLD = {
-    "SITE_TITLE": "Lab Cannabis",
-    "SITE_HEADER": "Lab Cannabis - Sistema de Gestión de Órdenes de Análisis",
+    "SITE_TITLE": "LABORATORIO DE CONTROL DE CALIDAD - S.M.G.H",
+    "SITE_HEADER": "LABORATORIO DE CONTROL DE CALIDAD - S.M.G.H",
     "SITE_URL": "/",
     "DASHBOARD_CALLBACK": "solicitudes.views.dashboard_callback",
     "THEME": "dark",
