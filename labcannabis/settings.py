@@ -26,7 +26,11 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-5iypp24*^8#wdp-qn*q69
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'labcannabis.dyepezg.dev',
+    'localhost',
+    '127.0.0.1',
+]
 
 # CSRF trusted origins for production
 CSRF_TRUSTED_ORIGINS = [
