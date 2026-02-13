@@ -16,8 +16,18 @@ class MuestraInlineForm(forms.ModelForm):
         model = Muestra
         fields = '__all__'
         widgets = {
-            'analisis_solicitados': forms.CheckboxSelectMultiple(),
+            'analisis_solicitados': forms.CheckboxSelectMultiple(
+                attrs={'class': 'checkbox-group'}
+            ),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure the queryset is set and ordered by category
+        if 'analisis_solicitados' in self.fields:
+            self.fields['analisis_solicitados'].queryset = TipoAnalisis.objects.all().order_by('categoria', 'nombre')
+            self.fields['analisis_solicitados'].help_text = 'Seleccione uno o más análisis requeridos'
+            self.fields['analisis_solicitados'].label = 'Análisis Solicitados'
 
 
 class MuestraInline(StackedInline):
