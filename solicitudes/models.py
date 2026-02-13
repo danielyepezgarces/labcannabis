@@ -35,13 +35,23 @@ class Solicitud(models.Model):
         ('COMERCIAL', 'Comercial'),
     ]
     
+    CARGO_CHOICES = [
+        ('CONTROL_CALIDAD', 'Control de Calidad'),
+        ('INGENIERO_AGRONOMO', 'Ingeniero Agrónomo'),
+        ('ANALISTA_LABORATORIO', 'Analista de Laboratorio'),
+        ('SUPERVISOR_PRODUCCION', 'Supervisor de Producción'),
+        ('COORDINADOR', 'Coordinador'),
+        ('GERENTE', 'Gerente'),
+        ('OTRO', 'Otro'),
+    ]
+    
     # Auto-generated code: QC0001-26
     codigo = models.CharField(max_length=20, unique=True, editable=False)
     
     # Bloque 1 - Datos del Solicitante
     solicitante_nombre = models.CharField(max_length=200, verbose_name="Nombre completo")
     solicitante_area = models.CharField(max_length=30, choices=AREA_CHOICES, verbose_name="Área/Departamento")
-    solicitante_cargo = models.CharField(max_length=100, verbose_name="Cargo")
+    solicitante_cargo = models.CharField(max_length=50, choices=CARGO_CHOICES, verbose_name="Cargo")
     solicitante_email = models.EmailField(verbose_name="Correo electrónico")
     fecha_solicitud = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de solicitud")
     

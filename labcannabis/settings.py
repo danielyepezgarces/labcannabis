@@ -164,4 +164,91 @@ UNFOLD = {
     "SITE_URL": "/",
     "DASHBOARD_CALLBACK": "solicitudes.views.dashboard_callback",
     "THEME": "dark",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Dashboard",
+                "separator": False,
+                "items": [
+                    {
+                        "title": "Inicio",
+                        "icon": "home",
+                        "link": "/admin/",
+                    },
+                ],
+            },
+            {
+                "title": "Solicitudes",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Órdenes de Análisis",
+                        "icon": "assignment",
+                        "link": "/admin/solicitudes/solicitud/",
+                        "permission": lambda request: request.user.has_perm('solicitudes.view_solicitud'),
+                    },
+                    {
+                        "title": "Muestras",
+                        "icon": "science",
+                        "link": "/admin/solicitudes/muestra/",
+                        "permission": lambda request: request.user.has_perm('solicitudes.view_muestra'),
+                    },
+                ],
+            },
+            {
+                "title": "Recepción",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Recepciones",
+                        "icon": "inbox",
+                        "link": "/admin/solicitudes/recepcionmuestra/",
+                        "permission": lambda request: request.user.has_perm('solicitudes.view_recepcionmuestra'),
+                    },
+                ],
+            },
+            {
+                "title": "Configuración",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Tipos de Análisis",
+                        "icon": "view_list",
+                        "link": "/admin/solicitudes/tipoanalisis/",
+                        "permission": lambda request: request.user.is_staff,
+                    },
+                    {
+                        "title": "Historial de Cambios",
+                        "icon": "history",
+                        "link": "/admin/solicitudes/historialcambios/",
+                        "permission": lambda request: request.user.is_staff,
+                    },
+                ],
+            },
+            {
+                "title": "Administración",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Usuarios",
+                        "icon": "people",
+                        "link": "/admin/auth/user/",
+                        "permission": lambda request: request.user.is_superuser or request.user.groups.filter(name='Administrador').exists(),
+                    },
+                    {
+                        "title": "Grupos",
+                        "icon": "group",
+                        "link": "/admin/auth/group/",
+                        "permission": lambda request: request.user.is_superuser or request.user.groups.filter(name='Administrador').exists(),
+                    },
+                ],
+            },
+        ],
+    },
 }

@@ -1,14 +1,41 @@
 from django.contrib import admin
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.forms import UserCreationForm
 from django.urls import path
 from django.shortcuts import redirect
 from django.contrib import messages
 from django import forms
 from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
+from unfold.widgets import UnfoldAdminTextInputWidget
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
 from .pdf import download_pdf_solicitud
+
+
+class PasswordInputWithToggle(forms.PasswordInput):
+    """Custom password input widget with show/hide toggle"""
+    template_name = 'admin/widgets/password_with_toggle.html'
+    
+    def __init__(self, attrs=None):
+        default_attrs = {'class': 'password-input-toggle'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(attrs=default_attrs)
+
+
+class CustomUserCreationForm(UserCreationForm):
+    """Custom user creation form with password visibility toggle"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add show password toggle to password fields
+        self.fields['password1'].widget = PasswordInputWithToggle()
+        self.fields['password2'].widget = PasswordInputWithToggle()
+        
+        # Customize help text
+        self.fields['password1'].help_text = 'La contraseña debe tener al menos 8 caracteres.'
+        self.fields['password2'].help_text = 'Ingrese la misma contraseña para verificación.'
 
 
 class SolicitudAdminForm(forms.ModelForm):
@@ -297,6 +324,8 @@ admin.site.unregister(User)
 class UserAdmin(BaseUserAdmin, ModelAdmin):
     """Custom User admin with Unfold styling and Solicitante default role"""
     
+    add_form = CustomUserCreationForm
+    
     # Override add_fieldsets to remove usable_password field
     add_fieldsets = (
         (None, {
@@ -304,6 +333,12 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
             'fields': ('username', 'password1', 'password2'),
         }),
     )
+    
+    class Media:
+        css = {
+            'all': ('admin/css/password_toggle.css',)
+        }
+        js = ('admin/js/password_toggle.js',)
     
     def save_model(self, request, obj, form, change):
         """Save user and assign Solicitante group by default for new users"""
