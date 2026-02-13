@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.urls import path
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -7,6 +9,21 @@ from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
 from .pdf import download_pdf_solicitud
+
+
+class SolicitudAdminForm(forms.ModelForm):
+    """Custom form for Solicitud to allow admin to modify estado"""
+    
+    class Meta:
+        model = Solicitud
+        fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Allow direct estado modification for users with change permission
+        if 'estado' in self.fields:
+            # Make estado field editable by removing FSM protection in the form
+            self.fields['estado'].required = False
 
 
 class MuestraInlineForm(forms.ModelForm):
@@ -59,6 +76,7 @@ class TipoAnalisisAdmin(ModelAdmin):
 @admin.register(Solicitud)
 class SolicitudAdmin(ModelAdmin):
     """Admin for Solicitud with inline Muestra"""
+    form = SolicitudAdminForm
     list_display = [
         'codigo', 'solicitante_nombre', 'solicitante_area', 
         'estado_badge', 'fecha_solicitud', 'get_num_muestras'
@@ -85,6 +103,35 @@ class SolicitudAdmin(ModelAdmin):
         }),
     )
     
+    def get_readonly_fields(self, request, obj=None):
+        """
+        Make estado field readonly for non-admin users.
+        Administrators can modify estado directly.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        
+        # If user is not a superuser and not in Administrador group, make estado readonly
+        if not request.user.is_superuser:
+            if not request.user.groups.filter(name='Administrador').exists():
+                if 'estado' not in readonly:
+                    readonly.append('estado')
+        
+        return readonly
+    
+    def get_fields(self, request, obj=None):
+        """
+        Hide estado field from Solicitante users when creating new requests.
+        """
+        fields = super().get_fields(request, obj)
+        
+        # If creating a new object (obj is None) and user is a Solicitante
+        if obj is None and not request.user.is_superuser:
+            if request.user.groups.filter(name='Solicitante').exists():
+                # Remove estado from visible fields for Solicitante
+                fields = [f for f in fields if f != 'estado']
+        
+        return fields
+    
     @display(description="Estado", label=True)
     def estado_badge(self, obj):
         colors = {
@@ -105,8 +152,21 @@ class SolicitudAdmin(ModelAdmin):
         return obj.muestras.count()
     
     def save_model(self, request, obj, form, change):
+        """
+        Save model with special handling for estado field.
+        Allow admins to directly modify estado field bypassing FSM protection.
+        """
         if not change:  # New object
             obj.creado_por = request.user
+        
+        # Check if admin is trying to change estado directly
+        if change and 'estado' in form.changed_data:
+            # Allow admins and superusers to bypass FSM protection
+            if request.user.is_superuser or request.user.groups.filter(name='Administrador').exists():
+                # Use the special admin method to set estado
+                new_estado = form.cleaned_data['estado']
+                obj.set_estado_admin(new_estado)
+        
         super().save_model(request, obj, form, change)
     
     def get_urls(self):
@@ -225,4 +285,14 @@ class HistorialCambiosAdmin(ModelAdmin):
     
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# Unregister the default User admin and register with Unfold
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin, ModelAdmin):
+    """Custom User admin with Unfold styling"""
+    pass
 

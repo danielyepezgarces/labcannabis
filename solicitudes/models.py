@@ -126,6 +126,14 @@ class Solicitud(models.Model):
     def completar_analisis(self):
         """Transition from EN_ANALISIS to COMPLETADA"""
         pass
+    
+    def set_estado_admin(self, new_estado):
+        """
+        Method to allow administrators to set estado directly, bypassing FSM protection.
+        This should only be used by administrators in the admin interface.
+        """
+        # Bypass FSM protection by setting the field directly in __dict__
+        self.__dict__['estado'] = new_estado
 
 
 class Muestra(models.Model):
