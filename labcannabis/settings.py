@@ -28,6 +28,11 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = []
 
+# CSRF trusted origins for production
+CSRF_TRUSTED_ORIGINS = [
+    'https://labcannabis.dyepezg.dev',
+]
+
 
 # Application definition
 

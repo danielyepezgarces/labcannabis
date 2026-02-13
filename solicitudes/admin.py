@@ -2,21 +2,39 @@ from django.contrib import admin
 from django.urls import path
 from django.shortcuts import redirect
 from django.contrib import messages
-from unfold.admin import ModelAdmin, TabularInline
+from django import forms
+from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
 from .pdf import download_pdf_solicitud
 
 
-class MuestraInline(TabularInline):
+class MuestraInlineForm(forms.ModelForm):
+    """Custom form for Muestra inline to show analysis types properly"""
+    
+    class Meta:
+        model = Muestra
+        fields = '__all__'
+        widgets = {
+            'analisis_solicitados': forms.CheckboxSelectMultiple(),
+        }
+
+
+class MuestraInline(StackedInline):
     """Inline admin for Muestra"""
     model = Muestra
+    form = MuestraInlineForm
     extra = 1
     fields = [
-        'nombre_producto', 'numero_lote', 'tipo_muestra', 'prioridad',
-        'fecha_fabricacion', 'fecha_vencimiento', 'tipo_analisis'
+        ('nombre_producto', 'numero_lote', 'tipo_muestra'),
+        ('fecha_fabricacion', 'fecha_vencimiento'),
+        ('numero_muestras_enviadas', 'cantidad_por_muestra'),
+        ('condiciones_almacenamiento', 'fecha_entrega_laboratorio'),
+        'analisis_solicitados',
+        ('tipo_analisis', 'prioridad', 'requiere_coa'),
+        ('protocolo_analitico', 'especificaciones'),
+        ('observaciones', 'debe_devolverse'),
     ]
-    autocomplete_fields = ['analisis_solicitados']
 
 
 @admin.register(TipoAnalisis)
