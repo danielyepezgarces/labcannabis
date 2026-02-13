@@ -1,12 +1,59 @@
 from django.contrib import admin
+from django.contrib.auth.models import User, Group
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.forms import UserCreationForm
 from django.urls import path
 from django.shortcuts import redirect
 from django.contrib import messages
 from django import forms
 from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
+from unfold.widgets import UnfoldAdminTextInputWidget, UnfoldAdminPasswordWidget
 from .models import Solicitud, Muestra, TipoAnalisis, RecepcionMuestra, HistorialCambios
 from .pdf import download_pdf_solicitud
+
+
+class PasswordInputWithToggle(UnfoldAdminPasswordWidget):
+    """Custom password input widget with show/hide toggle using Unfold styling"""
+    template_name = 'admin/widgets/password_with_toggle.html'
+    
+    def __init__(self, attrs=None):
+        default_attrs = {'class': 'password-input-toggle'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(attrs=default_attrs)
+
+
+class CustomUserCreationForm(UserCreationForm):
+    """Custom user creation form with password visibility toggle"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Use Unfold widget for username
+        self.fields['username'].widget = UnfoldAdminTextInputWidget()
+        
+        # Add show password toggle to password fields with Unfold styling
+        self.fields['password1'].widget = PasswordInputWithToggle()
+        self.fields['password2'].widget = PasswordInputWithToggle()
+        
+        # Customize help text
+        self.fields['password1'].help_text = 'La contraseña debe tener al menos 8 caracteres.'
+        self.fields['password2'].help_text = 'Ingrese la misma contraseña para verificación.'
+
+
+class SolicitudAdminForm(forms.ModelForm):
+    """Custom form for Solicitud to allow admin to modify estado"""
+    
+    class Meta:
+        model = Solicitud
+        fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make estado field non-required in the form
+        # Actual permission-based restrictions are enforced in the admin class
+        if 'estado' in self.fields:
+            self.fields['estado'].required = False
 
 
 class MuestraInlineForm(forms.ModelForm):
@@ -59,6 +106,7 @@ class TipoAnalisisAdmin(ModelAdmin):
 @admin.register(Solicitud)
 class SolicitudAdmin(ModelAdmin):
     """Admin for Solicitud with inline Muestra"""
+    form = SolicitudAdminForm
     list_display = [
         'codigo', 'solicitante_nombre', 'solicitante_area', 
         'estado_badge', 'fecha_solicitud', 'get_num_muestras'
@@ -85,6 +133,34 @@ class SolicitudAdmin(ModelAdmin):
         }),
     )
     
+    def get_readonly_fields(self, request, obj=None):
+        """
+        Make estado field readonly for non-admin users.
+        Administrators can modify estado directly.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        
+        # If user is not a superuser and not in Administrador group, make estado readonly
+        if not request.user.is_superuser and not request.user.groups.filter(name='Administrador').exists():
+            if 'estado' not in readonly:
+                readonly.append('estado')
+        
+        return readonly
+    
+    def get_fields(self, request, obj=None):
+        """
+        Hide estado field from Solicitante users when creating new requests.
+        """
+        fields = super().get_fields(request, obj)
+        
+        # If creating a new object (obj is None) and user is a Solicitante
+        if obj is None and not request.user.is_superuser:
+            if request.user.groups.filter(name='Solicitante').exists():
+                # Remove estado from visible fields for Solicitante
+                fields = [f for f in fields if f != 'estado']
+        
+        return fields
+    
     @display(description="Estado", label=True)
     def estado_badge(self, obj):
         colors = {
@@ -105,8 +181,24 @@ class SolicitudAdmin(ModelAdmin):
         return obj.muestras.count()
     
     def save_model(self, request, obj, form, change):
+        """
+        Save model with special handling for estado field.
+        Allow admins to directly modify estado field bypassing FSM protection.
+        """
         if not change:  # New object
             obj.creado_por = request.user
+        
+        # Check if admin is trying to change estado directly
+        if change and 'estado' in form.changed_data:
+            # Allow admins and superusers to bypass FSM protection
+            if request.user.is_superuser or request.user.groups.filter(name='Administrador').exists():
+                # Use the special admin method to set estado
+                new_estado = form.cleaned_data['estado']
+                obj.set_estado_admin(new_estado)
+                # Save with update_fields to exclude estado from normal save process
+                obj.save(update_fields=[f for f in form.changed_data if f != 'estado'])
+                return
+        
         super().save_model(request, obj, form, change)
     
     def get_urls(self):
@@ -225,4 +317,42 @@ class HistorialCambiosAdmin(ModelAdmin):
     
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# Unregister the default User admin and register with Unfold
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin, ModelAdmin):
+    """Custom User admin with Unfold styling and Solicitante default role"""
+    
+    add_form = CustomUserCreationForm
+    
+    # Override add_fieldsets to remove usable_password field
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'password1', 'password2'),
+        }),
+    )
+    
+    class Media:
+        css = {
+            'all': ('admin/css/password_toggle.css',)
+        }
+        js = ('admin/js/password_toggle.js',)
+    
+    def save_model(self, request, obj, form, change):
+        """Save user and assign Solicitante group by default for new users"""
+        super().save_model(request, obj, form, change)
+        
+        # If this is a new user (not editing existing), add to Solicitante group
+        if not change:
+            try:
+                solicitante_group = Group.objects.get(name='Solicitante')
+                obj.groups.add(solicitante_group)
+            except Group.DoesNotExist:
+                # Group doesn't exist yet, skip
+                pass
 

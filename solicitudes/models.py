@@ -32,6 +32,7 @@ class Solicitud(models.Model):
         ('AGRONOMIA', 'Agronomía'),
         ('PRODUCCION', 'Producción'),
         ('ASEGURAMIENTO_CALIDAD', 'Aseguramiento de Calidad'),
+        ('CONTROL_CALIDAD', 'Control de Calidad'),
         ('COMERCIAL', 'Comercial'),
     ]
     
@@ -126,6 +127,27 @@ class Solicitud(models.Model):
     def completar_analisis(self):
         """Transition from EN_ANALISIS to COMPLETADA"""
         pass
+    
+    def set_estado_admin(self, new_estado):
+        """
+        Method to allow administrators to set estado directly, bypassing FSM protection.
+        This should only be used by administrators in the admin interface.
+        
+        Args:
+            new_estado: The new estado value. Must be one of the valid choices.
+        
+        Raises:
+            ValueError: If new_estado is not a valid choice.
+        """
+        # Validate that new_estado is a valid choice
+        valid_estados = [choice[0] for choice in self.ESTADO_CHOICES]
+        if new_estado not in valid_estados:
+            raise ValueError(
+                f"Invalid estado '{new_estado}'. Must be one of: {', '.join(valid_estados)}"
+            )
+        
+        # Bypass FSM protection by setting the field directly in __dict__
+        self.__dict__['estado'] = new_estado
 
 
 class Muestra(models.Model):
