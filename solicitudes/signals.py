@@ -1,8 +1,21 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import Solicitud, RecepcionMuestra
+
+
+@receiver(pre_save, sender=Solicitud)
+def track_estado_change(sender, instance, **kwargs):
+    """Track estado changes before saving"""
+    if instance.pk:
+        try:
+            previous = Solicitud.objects.get(pk=instance.pk)
+            instance._previous_estado = previous.estado
+        except Solicitud.DoesNotExist:
+            instance._previous_estado = None
+    else:
+        instance._previous_estado = None
 
 
 @receiver(post_save, sender=Solicitud)
@@ -35,8 +48,8 @@ def notificar_cambio_estado(sender, instance, created, **kwargs):
     
     else:
         # Check if state changed
-        if instance.tracker.has_changed('estado'):
-            previous_state = instance.tracker.previous('estado')
+        previous_estado = getattr(instance, '_previous_estado', None)
+        if previous_estado and previous_estado != instance.estado:
             current_state = instance.estado
             
             # 2. Estado cambia a EN_ANALISIS - notify requester
@@ -110,24 +123,3 @@ def notificar_cambio_estado(sender, instance, created, **kwargs):
                     fail_silently=True,
                 )
 
-
-# Add tracker to model for change detection
-from django.db.models import Model
-
-
-def add_tracker_to_model():
-    """Add simple tracker for estado field"""
-    original_init = Solicitud.__init__
-    
-    def __init__(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        self.tracker = type('obj', (object,), {
-            '_original_estado': self.estado,
-            'has_changed': lambda field: getattr(self, field) != self.tracker._original_estado if field == 'estado' else False,
-            'previous': lambda field: self.tracker._original_estado if field == 'estado' else None
-        })()
-    
-    Solicitud.__init__ = __init__
-
-
-add_tracker_to_model()
