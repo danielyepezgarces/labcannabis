@@ -1,0 +1,7 @@
+Django>=6.0
+psycopg2-binary
+django-unfold
+django-fsm
+reportlab
+Pillow
+python-decouple
